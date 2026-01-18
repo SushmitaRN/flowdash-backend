@@ -1,0 +1,268 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+}
+
+enum Role {
+  PROJECT_MANAGER
+  MANAGER
+  OPERATOR
+}
+
+enum TaskStatus {
+  TODO
+  WORKING
+  STUCK
+  DONE
+}
+
+enum TaskPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+model User {
+  id               String        @id @default(cuid())
+  email            String        @unique
+  password         String
+  role             Role
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  // 1:1 optional employee profile (only for operators you show in "employees")
+  ManagerEmployees Employee[]    @relation("ManagerEmployees")
+  // tasks created by (if manager)
+  tasksCreated     Task[]        @relation("TasksCreatedBy")
+  // tasks assigned to (if operator)
+  tasksAssigned    Task[]        @relation("TasksAssignedTo", fields: [], references: [])
+  Employee         Employee[]
+  TaskComment      TaskComment[]
+
+  ExternalIdentity ExternalIdentity[]
+  taskWorkLogs     TaskWorkLog[]
+
+  LeaveRequests LeaveRequest[]
+  ApprovedLeaves LeaveRequest[] @relation("LeaveApprover")
+
+  announcements Announcement[]
+  feedback      Feedback[]
+  
+  overtimeRequests OvertimeRequest[]
+  ApprovedOvertime OvertimeRequest[] @relation("OvertimeApprover")
+  
+  bonuses          Bonus[]
+  approvedBonuses  Bonus[]           @relation("BonusApprover")
+}
+
+model Employee {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  managerId  String?
+  manager    User?    @relation("ManagerEmployees", fields: [managerId], references: [id], onDelete: SetNull)
+  roleTitle  String // "Senior Developer", "UI/UX Designer"
+  department String? // "Engineering" / "Design" / "Operations"
+  status     String   @default("Active") // Active / On Leave
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  title         String
+  notes         String?
+  dueDate       DateTime?
+  priority      TaskPriority @default(MEDIUM)
+  status        TaskStatus   @default(TODO)
+  assignedHours Int? // from your dialog
+
+  fileUrl_manager  String?
+  fileUrl_operator String?
+  isDeleted Boolean @default(false)
+  // relations
+  createdById      String?
+  createdBy        User?   @relation("TasksCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  assigneeId String?
+  assignee   User?   @relation("TasksAssignedTo", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  TaskComment  TaskComment[]
+  taskWorkLogs TaskWorkLog[]
+
+  @@index([assigneeId])
+  @@index([createdById])
+  @@index([status])
+  @@index([priority])
+}
+
+model TaskWorkLog {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id])
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  startTime DateTime
+  endTime   DateTime?
+
+  createdAt DateTime @default(now())
+}
+
+model TaskComment {
+  id String @id @default(cuid())
+
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  taskId String
+
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  authorId String
+
+  content String
+
+  // Track whether the comment has been seen by each role
+  seenByAssignee Boolean @default(false)
+  seenByManager  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([taskId])
+  @@index([authorId])
+}
+
+model ExternalIdentity {
+  id        String   @id @default(cuid())
+  provider  String // e.g. "keycloak"
+  subject   String // The Keycloak 'sub' claim (unique per user)
+  email     String   @unique
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+}
+
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  startDate DateTime
+  endDate   DateTime
+  reason    String
+  status    LeaveStatus @default(PENDING) 
+  type      LeaveType
+  
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  
+  approverId String?
+  approver  User?       @relation("LeaveApprover", fields: [approverId], references: [id])
+  
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum LeaveType {
+  SICK
+  CASUAL
+  EARNED
+  UNPAID
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  message   String
+  isPinned  Boolean  @default(false)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id])
+  targetAudience String @default("ALL")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([authorId])
+}
+
+model Feedback {
+  id          String   @id @default(cuid())
+  message     String
+  isAnonymous Boolean  @default(false)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model OvertimeRequest {
+  id           String    @id @default(cuid())
+  date         DateTime
+  hours        Float
+  reason       String
+  status       LeaveStatus @default(PENDING)
+  
+  userId       String
+  user         User      @relation(fields: [userId], references: [id])
+  
+  approverId   String?
+  approver     User?     @relation("OvertimeApprover", fields: [approverId], references: [id])
+  
+  approvalDate DateTime?
+  remarks      String?
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([status])
+}
+
+enum BonusType {
+  PERFORMANCE
+  FESTIVAL
+  SPOT
+  CUSTOM
+}
+
+enum BonusStatus {
+  PENDING
+  APPROVED
+}
+
+model Bonus {
+  id          String      @id @default(cuid())
+  amount      Float
+  reason      String
+  period      DateTime
+  type        BonusType
+  status      BonusStatus @default(PENDING)
+  
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  
+  approverId  String?
+  approver    User?       @relation("BonusApprover", fields: [approverId], references: [id])
+  
+  approvedAt  DateTime?
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
