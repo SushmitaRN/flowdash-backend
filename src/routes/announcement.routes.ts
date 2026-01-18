@@ -14,7 +14,7 @@ router.get("/", auth, async (req: Request, res: Response) => {
         const whereClause: any = {};
 
         // If not a manager, filter by target audience
-        if (user.role !== "MANAGER") {
+        if (user.role?.toUpperCase() !== "MANAGER") {
             whereClause.OR = [
                 { targetAudience: "ALL" },
                 { targetAudience: "EMPLOYEES" }
@@ -47,7 +47,7 @@ router.post("/", auth, async (req: Request, res: Response) => {
         const { title, message, isPinned, targetAudience } = req.body;
         const user = req.user;
 
-        if (!user || user.role !== "MANAGER") {
+        if (!user || user.role?.toUpperCase() !== "MANAGER") {
             return res.status(403).json({ error: "Only managers can create announcements" });
         }
 
@@ -79,12 +79,12 @@ router.patch("/:id/pin", auth, async (req: Request, res: Response) => {
         const { isPinned } = req.body;
         const user = req.user;
 
-        if (!user || user.role !== "MANAGER") {
+        if (!user || user.role?.toUpperCase() !== "MANAGER") {
             return res.status(403).json({ error: "Only managers can pin announcements" });
         }
 
         const announcement = await prisma.announcement.update({
-            where: { id },
+            where: { id: id as string },
             data: { isPinned }
         });
 
@@ -101,12 +101,12 @@ router.delete("/:id", auth, async (req: Request, res: Response) => {
         const { id } = req.params;
         const user = req.user;
 
-        if (!user || user.role !== "MANAGER") {
+        if (!user || user.role?.toUpperCase() !== "MANAGER") {
             return res.status(403).json({ error: "Only managers can delete announcements" });
         }
 
         await prisma.announcement.delete({
-            where: { id }
+            where: { id: id as string }
         });
 
         res.json({ message: "Announcement deleted" });

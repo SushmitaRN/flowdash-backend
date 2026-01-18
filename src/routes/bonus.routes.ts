@@ -133,7 +133,7 @@ router.patch("/:id/approve", auth, async (req: Request, res: Response) => {
         }
 
         const bonus = await prisma.bonus.update({
-            where: { id },
+            where: { id: id as string },
             data: {
                 status: "APPROVED",
                 approverId: user.id,
