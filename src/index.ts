@@ -18,10 +18,11 @@ import bonusRoutes from "./routes/bonus.routes";
 const app = express();
 
 /* =========================================================
-   CORS CONFIG — VERY IMPORTANT
+   CORS CONFIG
 ========================================================= */
 
 const allowedOrigins = [
+  // Local dev
   "http://localhost:5173",
   "http://127.0.0.1:5173",
 
@@ -35,27 +36,16 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow server-to-server & tools like curl/postman
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
-      return callback(
-        new Error(`CORS blocked for origin: ${origin}`),
-        false
-      );
-    },
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    origin: [
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://10.23.46.69:8081",
+      "https://flowdash-frontend-yiblucfnu-kails-projects-c0de5d48.vercel.app"
+    ],
     credentials: true,
   })
 );
 
-// ✅ Handle preflight requests
-app.options("*", cors());
 
 /* =========================================================
    MIDDLEWARE
@@ -104,5 +94,5 @@ app.use("/api/bonuses", bonusRoutes);
 const PORT = Number(process.env.PORT) || 4000;
 
 app.listen(PORT, () => {
-  console.log(`✅ API listening on port ${PORT}`);
+  console.log(`API listening on port ${PORT}`);
 });
