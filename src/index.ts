@@ -21,13 +21,11 @@ const app = express();
 app.use(cookieParser());
 app.use(express.json());
 
-/* ✅ CORS — VERY IMPORTANT */
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",
-      "http://localhost:8080",
       "https://flowdash-frontend.vercel.app",
+      "https://flowdash-frontend-git-main-kails-projects-c0de5d48.vercel.app",
       "https://flowdash-frontend-yiblucfnu-kails-projects-c0de5d48.vercel.app",
     ],
     credentials: true,
